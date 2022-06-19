@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"os"
 
-	_ "github.com/go-sql-driver/mysql"
-	"github.com/jinzhu/gorm"
 	_ "github.com/lib/pq"
+	"gorm.io/driver/mysql"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
 // TestDB initialize a db for testing
@@ -35,9 +36,9 @@ func TestDB() *gorm.DB {
 		// CREATE USER 'qor'@'localhost' IDENTIFIED BY 'qor';
 		// CREATE DATABASE qor_test;
 		// GRANT ALL ON qor_test.* TO 'qor'@'localhost';
-		db, err = gorm.Open("mysql", fmt.Sprintf("%s:%s@/%s?charset=utf8&parseTime=True&loc=Local", dbuser, dbpwd, dbname))
+		db, err = gorm.Open(mysql.Open(fmt.Sprintf("%s:%s@/%s?charset=utf8&parseTime=True&loc=Local", dbuser, dbpwd, dbname)), &gorm.Config{})
 	} else {
-		db, err = gorm.Open("postgres", fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable", dbuser, dbpwd, dbhost, dbname))
+		db, err = gorm.Open(postgres.Open(fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable", dbuser, dbpwd, dbhost, dbname)), &gorm.Config{})
 	}
 
 	if err != nil {
@@ -45,7 +46,7 @@ func TestDB() *gorm.DB {
 	}
 
 	if os.Getenv("DEBUG") != "" {
-		db.LogMode(true)
+		db = db.Debug()
 	}
 
 	return db
@@ -86,7 +87,7 @@ func Truncate(db *gorm.DB, givenTables ...interface{}) {
 	len := len(givenTables)
 	for i := range givenTables {
 		table := givenTables[len-i-1]
-		db.DropTableIfExists(table)
+		db.Exec("DROP TABLE IF EXISTS ?", table)
 	}
 }
 

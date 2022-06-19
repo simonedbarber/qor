@@ -5,7 +5,6 @@ import (
 	"errors"
 	"reflect"
 
-	"github.com/jinzhu/gorm"
 	"github.com/qor/qor"
 	"github.com/qor/qor/utils"
 	"github.com/qor/roles"
@@ -75,9 +74,11 @@ func (processor *processor) decode() (errs []error) {
 	}
 
 	newRecord := true
-	scope := &gorm.Scope{Value: processor.Result}
-	if primaryField := scope.PrimaryField(); primaryField != nil {
-		if !primaryField.IsBlank {
+	scope := utils.NewScope(processor.Result)
+	if primaryField := scope.PrimaryFields[0]; primaryField != nil {
+
+		rv := reflect.ValueOf(processor.Result)
+		if !rv.IsZero() {
 			newRecord = false
 		} else {
 			for _, metaValue := range processor.MetaValues.Values {

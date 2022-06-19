@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jinzhu/gorm"
 	"github.com/qor/admin"
 	"github.com/qor/publish2"
 	"github.com/qor/qor"
@@ -16,6 +15,7 @@ import (
 	testutils "github.com/qor/qor/test/utils"
 	"github.com/qor/qor/utils"
 	"github.com/qor/sorting"
+	"gorm.io/gorm"
 )
 
 func format(value interface{}) string {

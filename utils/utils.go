@@ -17,10 +17,10 @@ import (
 	"time"
 
 	"github.com/gosimple/slug"
-	"github.com/jinzhu/gorm"
 	"github.com/jinzhu/now"
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/qor/qor"
+	"gorm.io/gorm"
 
 	"strings"
 )
@@ -89,7 +89,7 @@ var asicsiiRegexp = regexp.MustCompile("^(\\w|\\s|-|!)*$")
 // e.g. ToParamString -> to_param_string, To ParamString -> to_param_string
 func ToParamString(str string) string {
 	if asicsiiRegexp.MatchString(str) {
-		return gorm.ToDBName(strings.Replace(str, " ", "_", -1))
+		return ns.ColumnName("", strings.Replace(str, " ", "_", -1))
 	}
 	return slug.Make(str)
 }
@@ -169,11 +169,13 @@ func Stringify(object interface{}) string {
 		return obj.Stringify()
 	}
 
-	scope := gorm.Scope{Value: object}
+	scope := NewScope(object)
+	rv := reflect.Indirect(reflect.ValueOf(object))
 	for _, column := range []string{"Name", "Title", "Code"} {
-		if field, ok := scope.FieldByName(column); ok {
-			if field.Field.IsValid() {
-				result := field.Field.Interface()
+
+		if field := scope.LookUpField(column); field != nil {
+			if rv.IsValid() {
+				result := rv.Interface()
 				if valuer, ok := result.(driver.Valuer); ok {
 					if result, err := valuer.Value(); err == nil {
 						return fmt.Sprint(result)
@@ -184,11 +186,12 @@ func Stringify(object interface{}) string {
 		}
 	}
 
-	if scope.PrimaryField() != nil {
-		if scope.PrimaryKeyZero() {
+	if PrimaryField(scope) != nil {
+		if PrimaryKeyZero(scope) {
 			return ""
 		}
-		return fmt.Sprintf("%v#%v", scope.GetModelStruct().ModelType.Name(), scope.PrimaryKeyValue())
+		rvField := rv.FieldByName(scope.PrimaryFields[0].Name)
+		return fmt.Sprintf("%v#%v", scope.ModelType.Name(), rvField.Interface())
 	}
 
 	return fmt.Sprint(reflect.Indirect(reflect.ValueOf(object)).Interface())
