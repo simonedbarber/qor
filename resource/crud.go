@@ -119,11 +119,9 @@ func (res *Resource) findManyHandler(result interface{}, context *qor.Context) e
 		db := context.GetDB()
 		if getTotalCountValue, ok := db.Get("qor:getting_total_count"); ok {
 			if getTotalCount, getTotalCountOk := getTotalCountValue.(bool); getTotalCountOk && getTotalCount {
-				tempResult := int64(0)
-				if err := context.GetDB().Count(&tempResult).Error; err != nil {
+				if err := context.GetDB().Count(result.(*int64)).Error; err != nil {
 					return err
 				}
-				result = &tempResult
 				return nil
 			}
 		}
