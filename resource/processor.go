@@ -5,7 +5,6 @@ import (
 	"errors"
 	"reflect"
 
-	"github.com/jinzhu/gorm"
 	"github.com/qor/qor"
 	"github.com/qor/qor/utils"
 	"github.com/qor/roles"
@@ -75,9 +74,11 @@ func (processor *processor) decode() (errs []error) {
 	}
 
 	newRecord := true
-	scope := &gorm.Scope{Value: processor.Result}
-	if primaryField := scope.PrimaryField(); primaryField != nil {
-		if !primaryField.IsBlank {
+	scope := utils.NewScope(processor.Result)
+	if primaryField := scope.PrimaryFields[0]; primaryField != nil {
+
+		rv := reflect.ValueOf(processor.Result)
+		if !rv.IsZero() {
 			newRecord = false
 		} else {
 			for _, metaValue := range processor.MetaValues.Values {
@@ -109,7 +110,6 @@ func (processor *processor) decode() (errs []error) {
 		if metaValue.MetaValues != nil && len(metaValue.MetaValues.Values) > 0 {
 			if res := metaValue.Meta.GetResource(); res != nil && !reflect.ValueOf(res).IsNil() {
 				field := reflect.Indirect(reflect.ValueOf(processor.Result)).FieldByName(meta.GetFieldName())
-
 				// Only decode nested meta value into struct if no Setter defined
 				if meta.GetSetter() == nil || reflect.Indirect(field).Type() == utils.ModelType(res.NewStruct()) {
 					if _, ok := field.Addr().Interface().(sql.Scanner); !ok {

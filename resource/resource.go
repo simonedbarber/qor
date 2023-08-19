@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/jinzhu/gorm"
 	"github.com/qor/qor"
 	"github.com/qor/qor/utils"
 	"github.com/qor/roles"
+	"gorm.io/gorm/schema"
 )
 
 // Resourcer interface
@@ -36,7 +36,7 @@ type ConfigureResourceInterface interface {
 type Resource struct {
 	Name            string
 	Value           interface{}
-	PrimaryFields   []*gorm.StructField
+	PrimaryFields   []*schema.Field
 	FindManyHandler func(interface{}, *qor.Context) error
 	FindOneHandler  func(interface{}, *MetaValues, *qor.Context) error
 	SaveHandler     func(interface{}, *qor.Context) error
@@ -44,7 +44,7 @@ type Resource struct {
 	Permission      *roles.Permission
 	Validators      []*Validator
 	Processors      []*Processor
-	primaryField    *gorm.Field
+	primaryField    *schema.Field
 }
 
 // New initialize qor resource
@@ -69,13 +69,12 @@ func (res *Resource) GetResource() *Resource {
 
 // SetPrimaryFields set primary fields
 func (res *Resource) SetPrimaryFields(fields ...string) error {
-	scope := gorm.Scope{Value: res.Value}
-	res.PrimaryFields = nil
+	scope := utils.NewScope(res.Value)
 
 	if len(fields) > 0 {
-		for _, fieldName := range fields {
-			if field, ok := scope.FieldByName(fieldName); ok {
-				res.PrimaryFields = append(res.PrimaryFields, field.StructField)
+		for fieldName := range scope.FieldsByName {
+			if field, ok := scope.FieldsByDBName[fieldName]; ok {
+				res.PrimaryFields = append(res.PrimaryFields, field)
 			} else {
 				return fmt.Errorf("%v is not a valid field for resource %v", fieldName, res.Name)
 			}
@@ -83,9 +82,11 @@ func (res *Resource) SetPrimaryFields(fields ...string) error {
 		return nil
 	}
 
-	if primaryField := scope.PrimaryField(); primaryField != nil {
-		res.PrimaryFields = []*gorm.StructField{primaryField.StructField}
-		return nil
+	if len(scope.PrimaryFieldDBNames) > 0 {
+		if primaryField := scope.PrimaryFields[0]; primaryField != nil {
+			res.PrimaryFields = []*schema.Field{primaryField}
+			return nil
+		}
 	}
 
 	return fmt.Errorf("no valid primary field for resource %v", res.Name)

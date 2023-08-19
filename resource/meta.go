@@ -11,11 +11,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jinzhu/gorm"
 	"github.com/qor/qor"
 	"github.com/qor/qor/utils"
 	"github.com/qor/roles"
 	"github.com/qor/validations"
+	"gorm.io/gorm/schema"
 )
 
 // CompositePrimaryKeySeparator to separate composite primary keys like ID and version_name
@@ -80,7 +80,7 @@ func (MetaConfig) ConfigureQorMeta(Metaor) {
 type Meta struct {
 	Name            string
 	FieldName       string
-	FieldStruct     *gorm.StructField
+	FieldStruct     *schema.Field
 	Setter          func(resource interface{}, metaValue *MetaValue, context *qor.Context)
 	Valuer          func(interface{}, *qor.Context) interface{}
 	FormattedValuer func(interface{}, *qor.Context) interface{}
@@ -179,7 +179,7 @@ func (meta *Meta) PreInitialize() error {
 		return value, fields[len(fields)-1]
 	}
 
-	var getField = func(fields []*gorm.StructField, name string) *gorm.StructField {
+	var getField = func(fields []*schema.Field, name string) *schema.Field {
 		for _, field := range fields {
 			if field.Name == name || field.DBName == name {
 				return field
@@ -189,12 +189,15 @@ func (meta *Meta) PreInitialize() error {
 	}
 
 	var nestedField = strings.Contains(meta.FieldName, ".")
-	var scope = &gorm.Scope{Value: meta.BaseResource.GetResource().Value}
+	scope := utils.NewScope(meta.BaseResource.GetResource().Value)
+
 	if nestedField {
 		subModel, name := parseNestedField(reflect.ValueOf(meta.BaseResource.GetResource().Value), meta.FieldName)
-		meta.FieldStruct = getField(scope.New(subModel.Interface()).GetStructFields(), name)
+		subScope := utils.NewScope(subModel)
+		meta.FieldStruct = getField(scope.Fields, name)
+		meta.FieldStruct = getField(subScope.Fields, name)
 	} else {
-		meta.FieldStruct = getField(scope.GetStructFields(), meta.FieldName)
+		meta.FieldStruct = getField(scope.Fields, meta.FieldName)
 	}
 	return nil
 }
@@ -219,9 +222,9 @@ func (meta *Meta) Initialize() error {
 
 // setCompositePrimaryKey if the association has CompositePrimaryKey integrated, generates value for it by our conventional format
 // the PrimaryKeyOf function will return the value from CompositePrimaryKey instead of ID, so that frontend could find correct version
-func setCompositePrimaryKey(f *gorm.Field) {
-	for i := 0; i < f.Field.Len(); i++ {
-		associatedRecord := reflect.Indirect(f.Field.Index(i))
+func setCompositePrimaryKey(f reflect.Value) {
+	for i := 0; i < f.Len(); i++ {
+		associatedRecord := reflect.Indirect(f.Index(i))
 		if v := associatedRecord.FieldByName(CompositePrimaryKeyFieldName); v.IsValid() {
 			id := associatedRecord.FieldByName("ID").Uint()
 			versionName := associatedRecord.FieldByName("VersionName").String()
@@ -248,28 +251,30 @@ func setupValuer(meta *Meta, fieldName string, record interface{}) {
 	if meta.FieldStruct != nil {
 		meta.Valuer = func(value interface{}, context *qor.Context) interface{} {
 			// get scope of current record. like Collection, then iterate its fields
-			scope := context.GetDB().NewScope(value)
-
-			if f, ok := scope.FieldByName(fieldName); ok {
-				if relationship := f.Relationship; relationship != nil && f.Field.CanAddr() && !scope.PrimaryKeyZero() {
+			scope := utils.NewScope(value)
+			if f, ok := scope.FieldsByName[fieldName]; ok {
+				rvField := reflect.Indirect(reflect.ValueOf(value)).FieldByName(f.Name)
+				if relationship := scope.Relationships.Relations[f.Name]; relationship != nil && rvField.CanAddr() && !utils.PrimaryKeyZero(value) {
 					// Iterate each field see if it is an relationship field like
 					// Factories []factory.Factory
 					// If so, set the CompositePrimaryKey value for PrimaryKeyOf to read
-					if (relationship.Kind == "has_many" || relationship.Kind == "many_to_many") && f.Field.Len() == 0 {
+					if (relationship.Type == schema.HasMany || relationship.Type == schema.Many2Many) && rvField.Len() == 0 {
 						// Retrieve the associated records from db
-						context.GetDB().Set("publish:version:mode", "multiple").Model(value).Related(f.Field.Addr().Interface(), fieldName)
+						// TODO: Related() difficulty
+						//context.GetDB().Set("publish:version:mode", "multiple").Model(value).Related(rvField.Addr().Interface(), fieldName)
 
-						setCompositePrimaryKey(f)
-					} else if relationship.Kind == "has_one" || relationship.Kind == "belongs_to" && context.GetDB().NewScope(f.Field.Interface()).PrimaryKeyZero() {
-						if f.Field.Kind() == reflect.Ptr && f.Field.IsNil() {
-							f.Field.Set(reflect.New(f.Field.Type().Elem()))
+						setCompositePrimaryKey(rvField)
+					} else if (relationship.Type == "has_one" || relationship.Type == "belongs_to") && utils.PrimaryKeyZero(rvField.Interface()) {
+						if rvField.Kind() == reflect.Ptr && rvField.IsNil() {
+							rvField.Set(reflect.New(rvField.Type().Elem()))
 						}
 
-						context.GetDB().Set("publish:version:mode", "multiple").Model(value).Related(f.Field.Addr().Interface(), fieldName)
+						// TODO: Related() difficulty
+						//context.GetDB().Set("publish:version:mode", "multiple").Model(value).Related(rvField.Addr().Interface(), fieldName)
 					}
 				}
 
-				return f.Field.Interface()
+				return rvField.Interface()
 			}
 
 			return ""
@@ -342,15 +347,15 @@ func switchRecordToNewVersionIfNeeded(context *qor.Context, record interface{}) 
 	return record
 }
 
-func HandleBelongsTo(context *qor.Context, record reflect.Value, field reflect.Value, relationship *gorm.Relationship, primaryKeys []string) {
+func HandleBelongsTo(context *qor.Context, record reflect.Value, field reflect.Value, relationship *schema.Relationship, primaryKeys []string) {
 	// Read value from foreign key field. e.g.  TagID => 1
-	// oldPrimaryKeys := utils.ToArray(record.FieldByName(relationship.ForeignFieldNames[0]).Interface())
-	// if not changed, return immediately // TODO: Removed due to pointer setting original to 0
-	/*	if fmt.Sprint(primaryKeys) == fmt.Sprint(oldPrimaryKeys) {
-			return
-		}
-	*/
-	foreignKeyField := record.FieldByName(relationship.ForeignFieldNames[0])
+	oldPrimaryKeys := utils.ToArray(record.FieldByName(relationship.Field.Name).Interface())
+	// if not changed, return immediately
+	if fmt.Sprint(primaryKeys) == fmt.Sprint(oldPrimaryKeys) {
+		return
+	}
+
+	foreignKeyField := record.FieldByName(relationship.Field.Name)
 	if len(primaryKeys) == 0 {
 		// if foreign key removed
 		foreignKeyField.Set(reflect.Zero(foreignKeyField.Type()))
@@ -364,8 +369,8 @@ func HandleBelongsTo(context *qor.Context, record reflect.Value, field reflect.V
 	}
 }
 
-func HandleVersioningBelongsTo(context *qor.Context, record reflect.Value, field reflect.Value, relationship *gorm.Relationship, primaryKeys []string, fieldHasVersion bool) {
-	foreignKeyName := relationship.ForeignFieldNames[0]
+func HandleVersioningBelongsTo(context *qor.Context, record reflect.Value, field reflect.Value, relationship *schema.Relationship, primaryKeys []string, fieldHasVersion bool) {
+	foreignKeyName := relationship.Field.Name
 	// Construct version name foreign key. e.g.  ManagerID -> ManagerVersionName
 	foreignVersionName := strings.Replace(foreignKeyName, "ID", "VersionName", -1)
 
@@ -441,7 +446,7 @@ func CollectPrimaryKeys(metaValueForCompositePrimaryKeys []string) (compositePKe
 	return
 }
 
-func HandleManyToMany(context *qor.Context, scope *gorm.Scope, meta *Meta, record interface{}, metaValue *MetaValue, field reflect.Value, fieldHasVersion bool) {
+func HandleManyToMany(context *qor.Context, scope *schema.Schema, meta *Meta, record interface{}, metaValue *MetaValue, field reflect.Value, fieldHasVersion bool) {
 	metaValueForCompositePrimaryKeys, ok := metaValue.Value.([]string)
 	compositePKeys := []CompositePrimaryKeyStruct{}
 	var compositePKeyConvertErr error
@@ -458,7 +463,7 @@ func HandleManyToMany(context *qor.Context, scope *gorm.Scope, meta *Meta, recor
 		HandleNormalManyToMany(context, field, metaValue, fieldHasVersion, compositePKeyConvertErr)
 	}
 
-	if !scope.PrimaryKeyZero() {
+	if !utils.PrimaryKeyZero(scope) {
 		context.GetDB().Model(record).Association(meta.FieldName).Replace(field.Interface())
 		field.Set(reflect.Zero(field.Type()))
 	}
@@ -523,7 +528,10 @@ func setupSetter(meta *Meta, fieldName string, record interface{}) {
 
 	commonSetter := func(setter func(field reflect.Value, metaValue *MetaValue, context *qor.Context, record interface{})) func(record interface{}, metaValue *MetaValue, context *qor.Context) {
 		return func(record interface{}, metaValue *MetaValue, context *qor.Context) {
+<<<<<<< HEAD
 
+=======
+>>>>>>> upstream/master
 			if metaValue == nil {
 				return
 			}
@@ -560,11 +568,11 @@ func setupSetter(meta *Meta, fieldName string, record interface{}) {
 
 	// Setup belongs_to / many_to_many Setter
 	if meta.FieldStruct != nil {
-		if relationship := meta.FieldStruct.Relationship; relationship != nil {
-			if relationship.Kind == "belongs_to" || relationship.Kind == "many_to_many" {
+		if relationship := meta.FieldStruct.Schema.Relationships.Relations[meta.FieldStruct.Name]; relationship != nil {
+			if relationship.Type == schema.BelongsTo || relationship.Type == schema.Many2Many {
 				meta.Setter = commonSetter(func(field reflect.Value, metaValue *MetaValue, context *qor.Context, record interface{}) {
 					var (
-						scope         = context.GetDB().NewScope(record)
+						scope         = utils.NewScope(record)
 						recordAsValue = reflect.Indirect(reflect.ValueOf(record))
 					)
 					switchRecordToNewVersionIfNeeded(context, record)
@@ -572,24 +580,24 @@ func setupSetter(meta *Meta, fieldName string, record interface{}) {
 					// If the field struct has version
 					fieldHasVersion := fieldIsStructAndHasVersion(field)
 
-					if relationship.Kind == "belongs_to" {
+					if relationship.Type == schema.BelongsTo {
 						primaryKeys := utils.ToArray(metaValue.Value)
 						if metaValue.Value == nil {
 							primaryKeys = []string{}
 						}
 
 						// For normal belongs_to association
-						if len(relationship.ForeignFieldNames) == 1 {
+						if len(relationship.References) == 1 {
 							HandleBelongsTo(context, recordAsValue, field, relationship, primaryKeys)
 						}
 
 						// For versioning association
-						if len(relationship.ForeignFieldNames) == 2 {
+						if len(relationship.References) == 2 {
 							HandleVersioningBelongsTo(context, recordAsValue, field, relationship, primaryKeys, fieldHasVersion)
 						}
 					}
 
-					if relationship.Kind == "many_to_many" {
+					if relationship.Type == schema.Many2Many {
 						// The reason why we use `record` as an interface{} here rather than `recordAsValue` is
 						// we need make query by record, it must be a pointer, but belongs_to make query based on field, no need to be pointer.
 						HandleManyToMany(context, scope, meta, record, metaValue, field, fieldHasVersion)
@@ -679,15 +687,18 @@ func getNestedModel(value interface{}, fieldName string, context *qor.Context) i
 	for _, field := range fields[:len(fields)-1] {
 		if model.CanAddr() {
 			submodel := model.FieldByName(field)
-			if context != nil && context.GetDB() != nil && context.GetDB().NewRecord(submodel.Interface()) && !context.GetDB().NewRecord(model.Addr().Interface()) {
-				if submodel.CanAddr() {
-					context.GetDB().Model(model.Addr().Interface()).Association(field).Find(submodel.Addr().Interface())
-					model = submodel
+
+			if context != nil && context.GetDB() != nil {
+				if submodel.IsZero() && !model.IsZero() {
+					if submodel.CanAddr() {
+						context.GetDB().Model(model.Addr().Interface()).Association(field).Find(submodel.Addr().Interface())
+						model = submodel
+					} else {
+						break
+					}
 				} else {
-					break
+					model = submodel
 				}
-			} else {
-				model = submodel
 			}
 		}
 	}
