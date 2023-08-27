@@ -1,13 +1,13 @@
-package resource
+go mod tidygo mod tidygo mod tidypackage resource
 
 import (
 	"database/sql"
 	"errors"
 	"reflect"
 
-	"github.com/qor/qor"
-	"github.com/qor/qor/utils"
-	"github.com/qor/roles"
+	"github.com/simonedbarber/qor"
+	"github.com/simonedbarber/qor/utils"
+	"github.com/simonedbarber/roles"
 )
 
 // ErrProcessorSkipLeft skip left processors error, if returned this error in validation, before callbacks, then qor will stop process following processors

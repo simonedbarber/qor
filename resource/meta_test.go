@@ -8,13 +8,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/qor/admin"
-	"github.com/qor/publish2"
-	"github.com/qor/qor"
-	"github.com/qor/qor/resource"
-	testutils "github.com/qor/qor/test/utils"
-	"github.com/qor/qor/utils"
-	"github.com/qor/sorting"
+	"github.com/simonedbarber/admin"
+	"github.com/simonedbarber/publish2"
+	"github.com/simonedbarber/qor"
+	"github.com/simonedbarber/qor/resource"
+	testutils "github.com/simonedbarber/qor/test/utils"
+	"github.com/simonedbarber/qor/utils"
+	"github.com/simonedbarber/sorting"
 	"gorm.io/gorm"
 )
 

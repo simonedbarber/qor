@@ -19,7 +19,7 @@ import (
 	"github.com/gosimple/slug"
 	"github.com/jinzhu/now"
 	"github.com/microcosm-cc/bluemonday"
-	"github.com/qor/qor"
+	"github.com/simonedbarber/qor"
 	"gorm.io/gorm"
 
 	"strings"

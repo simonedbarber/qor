@@ -3,19 +3,12 @@ package qor
 import (
 	"net/http"
 
-<<<<<<< HEAD
-	"github.com/jinzhu/gorm"
-=======
 	"gorm.io/gorm"
->>>>>>> upstream/master
 )
 
 // CurrentUser is an interface, which is used for qor admin to get current logged user
 type CurrentUser interface {
-<<<<<<< HEAD
 	GetID() uint
-=======
->>>>>>> upstream/master
 	DisplayName() string
 }
 
