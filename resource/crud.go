@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jinzhu/gorm"
-	"github.com/qor/qor"
-	"github.com/qor/qor/utils"
-	"github.com/qor/roles"
+	"github.com/simonedbarber/qor"
+	"github.com/simonedbarber/qor/utils"
+	"github.com/simonedbarber/roles"
+	"gorm.io/gorm"
 )
 
 // CallFindOne call find one method

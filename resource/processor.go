@@ -5,10 +5,10 @@ import (
 	"errors"
 	"reflect"
 
-	"github.com/jinzhu/gorm"
-	"github.com/qor/qor"
-	"github.com/qor/qor/utils"
-	"github.com/qor/roles"
+	"github.com/simonedbarber/qor"
+	"github.com/simonedbarber/qor/utils"
+	"github.com/simonedbarber/roles"
+	"gorm.io/gorm"
 )
 
 // ErrProcessorSkipLeft skip left processors error, if returned this error in validation, before callbacks, then qor will stop process following processors
