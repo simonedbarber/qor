@@ -1,10 +1,10 @@
 # QOR
 
-English Chat Room: [![Join the chat at https://gitter.im/qor/qor](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/qor/qor?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+English Chat Room: [![Join the chat at https://gitter.im/simonedbarber/qor](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/simonedbarber/qor?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-中文聊天室： [![加入中国Qor聊天室 https://gitter.im/qor/qor/china](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/qor/qor/china)
+中文聊天室： [![加入中国Qor聊天室 https://gitter.im/simonedbarber/qor/china](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/simonedbarber/qor/china)
 
-[![Build Status](https://travis-ci.com/qor/qor.svg?branch=master)](https://travis-ci.com/qor/qor)
+[![Build Status](https://travis-ci.com/simonedbarber/qor.svg?branch=master)](https://travis-ci.com/simonedbarber/qor)
 
 **For security issues, please send us an email to security@getqor.com and give us time to respond BEFORE posting as an issue or reporting on public forums.**
 
@@ -43,7 +43,7 @@ QOR is not a "boxed turnkey solution". You need proper coding skills to use it. 
 
 * [Roles](https://github.com/simonedbarber/roles) - Access Control
 
-* And more [https://github.com/qor](https://github.com/qor)
+* And more [https://github.com/simonedbarber](https://github.com/simonedbarber)
 
 ## Live DEMO
 

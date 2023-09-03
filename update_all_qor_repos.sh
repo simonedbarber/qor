@@ -41,7 +41,7 @@ function update_git_repo {
     fi
 }
 
-update_git_repo $GOPATH/src/github.com/qor
+update_git_repo $GOPATH/src/github.com/simonedbarber
 update_git_repo $GOPATH/src/enterprise.getqor.com
 
 wait
